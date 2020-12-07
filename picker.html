@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+        .scroller-component {
+            display: block;
+            position: relative;
+            height: 238px;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .scroller-content {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            z-index: 1;
+        }
+
+        .scroller-mask {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            margin: 0 auto;
+            width: 100%;
+            z-index: 3;
+            transform: translateZ(0px);
+            background-image:
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.6)),
+                linear-gradient(to top, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.6));
+            background-position: top, bottom;
+            background-size: 100% 102px;
+            background-repeat: no-repeat;
+        }
+
+        .scroller-item {
+            text-align: center;
+            font-size: 16px;
+            height: 34px;
+            line-height: 34px;
+            color: #000;
+        }
+
+        .scroller-indicator {
+            width: 100%;
+            height: 34px;
+            position: absolute;
+            left: 0;
+            top: 102px;
+            z-index: 3;
+            background-image:
+                linear-gradient(to bottom, #d0d0d0, #d0d0d0, transparent, transparent),
+                linear-gradient(to top, #d0d0d0, #d0d0d0, transparent, transparent);
+            background-position: top, bottom;
+            background-size: 100% 1px;
+            background-repeat: no-repeat;
+        }
+
+        .scroller-item {
+            line-clamp: 1;
+            -webkit-line-clamp: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    </style>
+</head>
+<body>
+    <div class="scroller-component" data-role="component">
+        <div class="scroller-mask" data-role="mask"></div>
+        <div class="scroller-indicator" data-role="indicator"></div>
+        <div class="scroller-content" data-role="content">
+            <div class="scroller-item" data-value='1'>1</div>
+            <div class="scroller-item" data-value="2">2</div>
+            <div class="scroller-item" data-value="3">3</div>
+            <div class="scroller-item" data-value="4">4</div>
+            <div class="scroller-item" data-value="5">5</div>
+            <div class="scroller-item" data-value="6">6</div>
+            <div class="scroller-item" data-value="7">7</div>
+            <div class="scroller-item" data-value="8">8</div>
+            <div class="scroller-item" data-value="9">9</div>
+            <div class="scroller-item" data-value="10">10</div>
+            <div class="scroller-item" data-value="11">11</div>
+            <div class="scroller-item" data-value="12">12</div>
+            <div class="scroller-item" data-value="13">13</div>
+            <div class="scroller-item" data-value="14">14</div>
+            <div class="scroller-item" data-value="15">15</div>
+            <div class="scroller-item" data-value="16">16</div>
+            <div class="scroller-item" data-value="17">17</div>
+            <div class="scroller-item" data-value="18">18</div>
+            <div class="scroller-item" data-value="19">19</div>
+            <div class="scroller-item" data-value="20">20</div>
+        </div>
+    </div>
+    <script>
+        let component = document.querySelector('[data-role=component]')
+        let indicator = component.querySelector('[data-role=indicator]')
+
+
+        // let touchStartHandler = (e) => { }
+        // let touchMoveHandler = (e) => { }
+        // let touchEndHandler = (e) => { }
+
+        let content = component.querySelector('[data-role=content]') // 内容容器
+        let __itemHeight = parseFloat(window.getComputedStyle(indicator).height)
+
+        let __startTouchTop = 0 // 记录开始滚动的位置
+        let __scrollTop = 0 // 记录最终滚动的位置
+        let __maxScrollTop = component.clientHeight / 2 //滚动最大值
+        let __minScrollTop = - (content.offsetHeight - __maxScrollTop)  //滚动最小值
+
+        // 这个方法下面马上讲解
+        let __callback = (top) => {
+            const distance = top
+            content.style.transform = 'translate3d(0, ' + distance + 'px, 0)'
+        }
+
+        // 这个方法下面马上讲解
+        let __publish = (top, animationDuration) => {
+            __callback(top)
+        }
+        
+        let touchStartHandler = (e) => {
+            e.preventDefault()
+            const target = e.touches ? e.touches[0] : e
+            __startTouchTop = target.pageY
+        }
+
+        let touchMoveHandler = (e) => {
+            const target = e.touches ? e.touches[0] : e
+            let currentTouchTop = target.pageY
+            let moveY = currentTouchTop - __startTouchTop
+
+            __scrollTop += moveY
+            
+            if (__scrollTop > __maxScrollTop) {
+                __scrollTop = __maxScrollTop
+            } else if (__scrollTop < __minScrollTop) {
+                __scrollTop = __minScrollTop
+            }
+
+            __publish(__scrollTop)
+            __startTouchTop = currentTouchTop
+        }
+
+        let touchEndHandler = (e) => {
+            __scrollTop = Math.round(__scrollTop / __itemHeight).toFixed(5) * __itemHeight
+            __publish(__scrollTop)
+        }
+
+        component.addEventListener('touchstart', touchStartHandler)
+        component.addEventListener('touchmove', touchMoveHandler)
+        component.addEventListener('touchend', touchEndHandler)
+    </script>
+</body>
+</html>
