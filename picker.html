@@ -100,14 +100,74 @@
             <div class="scroller-item" data-value="20">20</div>
         </div>
     </div>
+    
+    <script> //动画函数 Animation
+
+        // 开始快后来慢的渐变曲线
+        let easeOutCubic = (pos) => {
+            return (Math.pow((pos - 1), 3) + 1)
+        }
+        // 以满足开始和结束的动画
+        let easeInOutCubic = (pos) => {
+            if ((pos /= 0.5) < 1) {
+                return 0.5 * Math.pow(pos, 3)
+            }
+            return 0.5 * (Math.pow((pos - 2), 3) + 2)
+        }
+
+       let running = {} //运行
+       let counter = 1 //计时器
+      
+       const Animate = {
+           stop (id) {
+             let cleared = running[id] != null
+             if (cleared) {
+                running[id] = null
+             }
+             return cleared
+           },
+           isRunning (id) {
+             return running[id] != null
+           },
+           start (stepCallback, verifyCallback, completedCallback, duration, easingMethod) {
+             
+             let start = Date.now()
+             let percent = 0
+             let id = counter++
+
+             function step () {
+                let now = Date.now()
+
+                if (!running[id] || (verifyCallback && !verifyCallback(id))) {
+                    running[id] = null
+                    completedCallback && completedCallback(id)
+                    return 
+                }
+
+                if (duration) {
+                    percent = (now - start) / duration
+                    if (percent > 1) {
+                      percent = 1
+                    }
+                }
+                
+                let value = easingMethod ? easingMethod(percent) : percent
+                if (percent !== 1 && (!verifyCallback || verifyCallback(id))) {
+                    stepCallback(value)
+                    window.requestAnimationFrame(step)
+                }
+             }
+             
+             running[id] = true
+             window.requestAnimationFrame(step)
+             return id
+           }
+       }
+    </script>
+
     <script>
         let component = document.querySelector('[data-role=component]')
         let indicator = component.querySelector('[data-role=indicator]')
-
-
-        // let touchStartHandler = (e) => { }
-        // let touchMoveHandler = (e) => { }
-        // let touchEndHandler = (e) => { }
 
         let content = component.querySelector('[data-role=content]') // 内容容器
         let __itemHeight = parseFloat(window.getComputedStyle(indicator).height)
@@ -117,6 +177,8 @@
         let __maxScrollTop = component.clientHeight / 2 //滚动最大值
         let __minScrollTop = - (content.offsetHeight - __maxScrollTop)  //滚动最小值
 
+        let __isAnimating = false // 是否开启动画
+
         // 这个方法下面马上讲解
         let __callback = (top) => {
             const distance = top
@@ -125,7 +187,32 @@
 
         // 这个方法下面马上讲解
         let __publish = (top, animationDuration) => {
-            __callback(top)
+            if (animationDuration) {
+               let oldTop = __scrollTop
+               let diffTop = top - oldTop
+               let wasAnimating = __isAnimating
+
+               let step = function (percent) {
+                  __scrollTop = oldTop + (diffTop * percent)
+                  __callback(__scrollTop)
+               }
+
+               let verify = function (id) {
+                   return __isAnimating === id
+               }
+
+               let completed = function (animationId) {
+                    if (animationId === __isAnimating) {
+                        __isAnimating = false
+                    }
+                }
+
+                __isAnimating = Animate.start(step, verify, completed, animationDuration, wasAnimating ? easeOutCubic : easeInOutCubic)
+
+            } else {
+                __scrollTop = top
+                __callback(top)
+            }
         }
         
         let touchStartHandler = (e) => {
@@ -138,22 +225,22 @@
             const target = e.touches ? e.touches[0] : e
             let currentTouchTop = target.pageY
             let moveY = currentTouchTop - __startTouchTop
-
-            __scrollTop += moveY
             
-            if (__scrollTop > __maxScrollTop) {
-                __scrollTop = __maxScrollTop
-            } else if (__scrollTop < __minScrollTop) {
-                __scrollTop = __minScrollTop
+            let scrollTop = __scrollTop + moveY
+
+            if (scrollTop > __maxScrollTop) {
+                scrollTop = __maxScrollTop
+            } else if (scrollTop < __minScrollTop) {
+                scrollTop = __minScrollTop
             }
 
-            __publish(__scrollTop)
+            __publish(scrollTop)
             __startTouchTop = currentTouchTop
         }
 
         let touchEndHandler = (e) => {
-            __scrollTop = Math.round(__scrollTop / __itemHeight).toFixed(5) * __itemHeight
-            __publish(__scrollTop)
+            let scrollTop = Math.round(__scrollTop / __itemHeight).toFixed(5) * __itemHeight
+            __publish(scrollTop, 250)
         }
 
         component.addEventListener('touchstart', touchStartHandler)
