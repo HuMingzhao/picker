@@ -222,8 +222,10 @@
             let newTop = Math.max(Math.min(__maxScrollTop, top), __minScrollTop)
             if (top !== newTop) {
                 if (newTop >= __maxScrollTop) {
+                    console.log(1111111)
                     top = newTop - __itemHeight / 2
                 } else {
+                    console.log(2222222)
                     top = newTop + __itemHeight / 2
                 }
             }
@@ -289,21 +291,16 @@
                 if (Math.abs(__deceleratingMove) > minVelocityToStartDeceleration) {
                     __startDeceleration()
                 } else {
-                    let scrollTop = Math.round(__scrollTop / __itemHeight).toFixed(5) * __itemHeight
-                    __publish(scrollTop, 250)
+                    __scrollTo(__scrollTop)
                 }
             } else { //非加速模式
-                let scrollTop = Math.round(__scrollTop / __itemHeight).toFixed(5) * __itemHeight
-                __publish(scrollTop, 250)
+                __scrollTo(__scrollTop)
             }
-
+            __positions.length = 0
         }
 
-
         function  __startDeceleration () {
-
                let step = function () {
-                   console.log('__deceleratingMove', __deceleratingMove)
                   let scrollTop = __scrollTop + __deceleratingMove
                   let scrollTopFixed = Math.max(Math.min(__maxScrollTop, scrollTop), __minScrollTop) // 不小于最小值，不大于最大值
                  
@@ -338,9 +335,6 @@
                 }
 
                 __isDecelerating = Animate.start(step, verify, completed)
-
-
-            
         }
 
         component.addEventListener('touchstart', touchStartHandler)
