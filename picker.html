@@ -177,15 +177,16 @@
         let __maxScrollTop = component.clientHeight / 2 //滚动最大值
         let __minScrollTop = - (content.offsetHeight - __maxScrollTop)  //滚动最小值
 
+        let __positions = []   // 记录位置和时间
+        let __lastTouchMove  = 0 // 最后滚动时间记录
+
         let __isAnimating = false // 是否开启动画
 
-        // 这个方法下面马上讲解
         let __callback = (top) => {
             const distance = top
             content.style.transform = 'translate3d(0, ' + distance + 'px, 0)'
         }
 
-        // 这个方法下面马上讲解
         let __publish = (top, animationDuration) => {
             if (animationDuration) {
                let oldTop = __scrollTop
@@ -214,6 +215,20 @@
                 __callback(top)
             }
         }
+
+        // 滚动到正确位置的方法
+        let __scrollTo = (top) => {
+            top = Math.round((top / __itemHeight).toFixed(5)) * __itemHeight
+            let newTop = Math.max(Math.min(__maxScrollTop, top), __minScrollTop)
+            if (top !== newTop) {
+                if (newTop >= __maxScrollTop) {
+                    top = newTop - __itemHeight / 2
+                } else {
+                    top = newTop + __itemHeight / 2
+                }
+            }
+            __publish(top, 250)
+        }
         
         let touchStartHandler = (e) => {
             e.preventDefault()
@@ -228,19 +243,104 @@
             
             let scrollTop = __scrollTop + moveY
 
+            if (__positions.length > 40) {
+                __positions.splice(0, 20)
+            } 
+
             if (scrollTop > __maxScrollTop) {
                 scrollTop = __maxScrollTop
             } else if (scrollTop < __minScrollTop) {
                 scrollTop = __minScrollTop
             }
 
+            __positions.push(scrollTop, e.timeStamp)
+
             __publish(scrollTop)
+
             __startTouchTop = currentTouchTop
+            __lastTouchMove = e.timeStamp
         }
 
+        let __deceleratingMove = 0 // 减速状态每帧移动的距离
+        let __isDecelerating = false // 是否开启减速状态
+
         let touchEndHandler = (e) => {
-            let scrollTop = Math.round(__scrollTop / __itemHeight).toFixed(5) * __itemHeight
-            __publish(scrollTop, 250)
+            
+            if (e.timeStamp - __lastTouchMove < 100) {  //加速模式
+                
+                let positions = __positions
+                let endPos = positions.length - 1
+                let startPos = endPos
+
+                const len = __positions.length
+
+                for (let i = endPos; i > 0 && __lastTouchMove - __positions[i] < 100; i -= 2) {
+                    startPos = i
+                }
+                
+                let timeOffset = positions[endPos] - positions[startPos] // 快速开始时间 - 结束滚动时间
+                let movedTop = __scrollTop - positions[startPos - 1] // 最终距离 - 快速开始距离
+                
+                __deceleratingMove = movedTop / timeOffset * (1000 / 60) // 1000 / 60 代表 1秒60每帧 也就是 60fps。玩游戏的可能理解 60fps是啥意思
+                
+                let minVelocityToStartDeceleration = 4 // 开始减速的最小速度 
+
+                // 只有速度大于最小加速速度时才会出现下面的动画
+                if (Math.abs(__deceleratingMove) > minVelocityToStartDeceleration) {
+                    __startDeceleration()
+                } else {
+                    let scrollTop = Math.round(__scrollTop / __itemHeight).toFixed(5) * __itemHeight
+                    __publish(scrollTop, 250)
+                }
+            } else { //非加速模式
+                let scrollTop = Math.round(__scrollTop / __itemHeight).toFixed(5) * __itemHeight
+                __publish(scrollTop, 250)
+            }
+
+        }
+
+
+        function  __startDeceleration () {
+
+               let step = function () {
+                   console.log('__deceleratingMove', __deceleratingMove)
+                  let scrollTop = __scrollTop + __deceleratingMove
+                  let scrollTopFixed = Math.max(Math.min(__maxScrollTop, scrollTop), __minScrollTop) // 不小于最小值，不大于最大值
+                 
+                  if (scrollTopFixed !== scrollTop) {
+                        scrollTop = scrollTopFixed
+                        __deceleratingMove = 0
+                  } 
+                  
+                  if (Math.abs(__deceleratingMove) <= 1) {
+                        if (Math.abs(scrollTop % __itemHeight) < 1) {
+                            __deceleratingMove = 0
+                        }
+                  } else {
+                        __deceleratingMove *= 0.95
+                  }
+                  __publish(scrollTop)
+               }
+               
+               let minVelocityToKeepDecelerating = 0.5
+
+               let verify = function (id) {
+                   let shouldContinue = Math.abs(__deceleratingMove) >= minVelocityToKeepDecelerating
+                   return shouldContinue
+               }
+
+               let completed = function (animationId) {
+                    __isDecelerating = false
+                    if (__scrollTop <= __minScrollTop || __scrollTop >= __maxScrollTop) {
+                        __scrollTo(__scrollTop)
+                        return
+                    }
+                }
+
+                __isDecelerating = Animate.start(step, verify, completed)
+
+
+            
         }
 
         component.addEventListener('touchstart', touchStartHandler)
